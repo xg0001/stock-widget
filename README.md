@@ -76,3 +76,18 @@ npm run build # 打包 exe（见 build.cmd）
 ## 📄 License
 
 [MIT](LICENSE) © 2026 xg0001
+
+
+---
+
+<div align="center">
+
+## 💬 加入官方 QQ 交流群
+
+<img src="assets/qq-group.png" width="220" alt="QQ群二维码" />
+
+**群号：1091505938**
+
+扫码进群，第一时间获取版本更新与使用攻略
+
+</div>
