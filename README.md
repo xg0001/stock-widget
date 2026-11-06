@@ -6,11 +6,11 @@
 
 | 主界面（透明悬浮 + 指数条 + 分时小图） | 放大分时 / K线图 |
 |---|---|
-| ![主界面](assets/screenshots/main.png) | ![放大图](assets/screenshots/chart.png) |
+| ![主界面](assets/screenshots/main.jpg) | ![放大图](assets/screenshots/chart.jpg) |
 
 | 行情榜单 | 设置中心 |
 |---|---|
-| ![榜单](assets/screenshots/rank.png) | ![设置](assets/screenshots/settings.png) |
+| ![榜单](assets/screenshots/rank.jpg) | ![设置](assets/screenshots/settings.jpg) |
 
 > 📥 **下载安装**：去 [Releases](../../releases) 页面下载 `stock-widget-Setup-1.0.0.exe` 安装包（Windows x64）。
 
