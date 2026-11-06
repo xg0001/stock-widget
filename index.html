@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>股票自选小窗</title>
+  <link rel="stylesheet" href="style.css" id="mainStyle" />
+  <script>
+    // 每次加载给 CSS 加时间戳，绕过 file:// 缓存，Ctrl+R / 菜单「重新加载」即可看到最新样式，无需重启软件
+    (function () {
+      var l = document.getElementById('mainStyle');
+      if (l) l.href = l.getAttribute('href').split('?')[0] + '?_=' + Date.now();
+    })();
+  </script>
+</head>
+<body>
+  <!-- 欢迎页（纯本地软件：首次启动展示一次，引流 + 通行证说明；置于脚本之前以确保 DOM 就绪时绑定事件） -->
+  <div class="login-mask" id="welcomeMask" hidden>
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="assets/logo.png" alt="logo" onerror="this.style.display='none'; this.parentNode.classList.add('fallback')">
+      </div>
+      <div class="login-title">股票自选小窗</div>
+      <div class="login-sub">本地免费 · 数据只存本机，绝不上传</div>
+      <div class="group-qr-wrap welcome-qr">
+        <img id="welcomeQr" alt="QQ群二维码" draggable="false" />
+        <div class="group-qr-missing" id="welcomeQrMissing" hidden>二维码待配置<br><small>将群二维码图片保存为<br>resources/qrcode.png</small></div>
+      </div>
+      <div class="welcome-group-row" id="welcomeGroupRow" hidden>
+        <span class="welcome-group-name" id="welcomeGroupName"></span>
+        <button class="mini-btn no-drag" id="welcomeCopyBtn">复制群号</button>
+      </div>
+      <div class="welcome-pass-hint" id="welcomePassHint">🐾 每日签到攒积分 · 200 积分兑 30 天豪华通行证</div>
+      <button class="login-submit" id="welcomeStart">开始使用</button>
+    </div>
+  </div>
+
+  <!-- 官方交流群弹窗（登录窗 / 设置页 / 托盘菜单共用） -->
+  <div class="chart-modal" id="groupModal" hidden>
+    <div class="chart-card group-card no-drag">
+      <div class="chart-head">
+        <div class="chart-title" id="groupTitle">官方交流群</div>
+        <button class="icon-btn no-drag" id="groupClose" title="关闭">×</button>
+      </div>
+      <div class="group-body">
+        <div class="group-qr-wrap" id="groupQrWrap">
+          <img id="groupQrcode" alt="微信群二维码" draggable="false" />
+          <div class="group-qr-missing" id="groupQrMissing" hidden>二维码待配置<br><small>将群活码图片保存为<br>resources/qrcode.png</small></div>
+        </div>
+        <div class="group-notice" id="groupNotice" hidden></div>
+        <div class="group-number-row" id="groupNumberRow" hidden>
+          <span class="group-number" id="groupNumber"></span>
+          <button class="mini-btn no-drag" id="groupCopyBtn">复制群号</button>
+        </div>
+        <button class="mini-btn no-drag group-url-btn" id="groupUrlBtn" hidden>打开加入链接</button>
+      </div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="main-content" id="mainContent">
+      <!-- 标题栏：唯一可拖拽区域 -->
+      <div class="titlebar" id="titlebar">
+      <div class="view-selector no-drag" id="viewSelector" title="切换视图">
+        <span class="vs-label" id="vsLabel">自选股</span>
+        <span class="vs-arrow">▾</span>
+      </div>
+      <div class="view-dropdown no-drag" id="viewDropdown" hidden></div>
+      <div class="title-actions">
+        <button class="icon-btn no-drag" id="refreshBtn" title="立即刷新">⟳</button>
+        <button class="icon-btn no-drag" id="collapseBtn" title="收起/展开（只显示常驻票）">▾</button>
+        <button class="icon-btn no-drag" id="rankBtn" title="行情榜单（涨幅/跌幅/换手/成交额）">榜</button>
+        <button class="icon-btn no-drag" id="helpBtn" title="快捷键与帮助">?</button>
+        <button class="icon-btn no-drag" id="menuBtn" title="菜单">☰</button>
+        <button class="icon-btn no-drag" id="settingsBtn" title="设置">⚙</button>
+        <button class="icon-btn no-drag" id="closeBtn" title="最小化到托盘">×</button>
+      </div>
+    </div>
+
+    <!-- 视图：自选股 -->
+    <div class="view active" id="watchlistView" data-view="watchlist">
+    <!-- 大盘指数速览条（实时、可点击打开行情） -->
+    <div class="indices no-drag" id="indices"></div>
+    <!-- 刷新倒计时进度条（丝滑反馈下一次刷新） -->
+    <div class="refresh-bar" id="refreshBar"></div>
+
+    <!-- 下拉菜单 -->
+    <div class="menu no-drag" id="menu" hidden>
+      <div class="menu-item" id="menuToggle">显示 / 隐藏窗口</div>
+      <div class="menu-item" id="menuCollapse">收起窗口（只显示常驻票）</div>
+      <div class="menu-item" id="menuManage">管理自选 / 备份</div>
+      <div class="menu-item" id="menuReset">重置窗口位置</div>
+      <div class="menu-item" id="menuReload">重新加载（刷新样式）</div>
+      <div class="menu-item danger" id="menuQuit">退出</div>
+    </div>
+
+    <!-- 添加输入框 -->
+    <div class="add-bar no-drag">
+      <div class="input-wrap">
+        <input id="codeInput" type="text" placeholder="代码或名称，如 600519 / 茅台 / hk00700 / 半导体 / BK1036" />
+        <div class="search-box no-drag" id="searchBox" hidden></div>
+      </div>
+    </div>
+
+    <!-- 分组标签栏 -->
+    <div class="groups no-drag" id="groups">
+      <div class="groups-track no-drag" id="groupsTrack"></div>
+      <button class="group-add no-drag" id="groupAdd" title="添加分组">＋</button>
+      <button class="pf-group-btn no-drag" id="pfGroupBtn" title="查看持仓股">持仓</button>
+    </div>
+
+    <!-- 列表 -->
+    <div class="list" id="list"></div>
+
+    <!-- 状态栏 -->
+    <div class="statusbar no-drag">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">就绪</span>
+    </div>
+
+    <!-- 持仓汇总条（填了成本价+股数的票才显示） -->
+    <div class="pf-summary no-drag" id="pfSummary" hidden></div>
+    </div>
+
+    <!-- 视图：持仓 -->
+    <div class="view" id="portfolioView" data-view="portfolio" hidden>
+      <div class="portfolio-head">
+        <div class="ph-title">持仓盈亏</div>
+        <button class="icon-btn no-drag pf-add" id="pfAddBtn" title="添加持仓 / 自选股">＋</button>
+      </div>
+      <div class="ph-nums" id="pfHeaderNums">总市值 <span>0</span> · 当日盈亏 <span>0</span></div>
+      <div class="portfolio-list" id="portfolioList"></div>
+    </div>
+
+    <!-- 视图：指数行情 -->
+    <div class="view" id="indicesView" data-view="indices" hidden>
+      <div class="idx-groups" id="indicesGroups"></div>
+    </div>
+
+    <!-- 视图：涨跌分布 / 行情 -->
+    <div class="view" id="marketView" data-view="market" hidden>
+      <div class="market-summary" id="marketSummary"></div>
+      <div class="market-volume" id="marketVolume"></div>
+      <div class="market-charts">
+        <div class="mchart-card">
+          <div class="mchart-head">
+            <div class="mchart-title">涨跌幅分布</div>
+            <div class="mchart-updated" id="distUpdated"></div>
+          </div>
+          <canvas class="mchart-canvas" id="distCanvas" width="320" height="160"></canvas>
+        </div>
+        <div class="mchart-card">
+          <div class="mchart-head">
+            <div class="mchart-title">涨跌趋势</div>
+            <div class="mchart-tabs no-drag" id="trendTabs">
+              <button data-trend="intraday" class="active">当日</button>
+              <button data-trend="history">近60日</button>
+            </div>
+          </div>
+          <div class="mchart-legend" id="trendLegend">
+            <span class="legend-up"><i></i>上涨家数</span>
+            <span class="legend-down"><i></i>下跌家数</span>
+          </div>
+          <canvas class="mchart-canvas" id="trendCanvas" width="320" height="160"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 视图：股票热榜 -->
+    <div class="view" id="hotView" data-view="hot" hidden>
+      <div class="sub-tabs no-drag" id="hotTabs">
+        <button data-hot="1h" class="active">资金榜</button>
+        <button data-hot="24h">涨幅榜</button>
+      </div>
+      <div class="dlist" id="hotList"></div>
+    </div>
+
+    <!-- 视图：涨停天梯 -->
+    <div class="view" id="ladderView" data-view="ladder" hidden>
+      <div class="filter-row no-drag" id="ladderFilters">
+        <label class="filter-radio"><input type="radio" name="ladderFilter" value="all" checked><span>全部股票</span></label>
+        <label class="filter-radio"><input type="radio" name="ladderFilter" value="no-st"><span>去除ST股</span></label>
+      </div>
+      <div class="dlist" id="ladderList"></div>
+    </div>
+
+    <!-- 视图：板块（行业/概念） -->
+    <div class="view" id="sectorsView" data-view="sectors" hidden>
+      <div class="sub-tabs no-drag" id="sectorsTabs">
+        <button data-sec="industry" class="active">行业</button>
+        <button data-sec="concept">概念</button>
+      </div>
+      <div class="dlist" id="sectorsList"></div>
+    </div>
+
+    <!-- 视图：ETF 榜 -->
+    <div class="view" id="etfView" data-view="etf" hidden>
+      <div class="sub-tabs no-drag etf-tabs" id="etfTabs">
+        <div class="etf-tabs-track" id="etfTabsTrack"></div>
+        <button class="etf-tabs-more" id="etfTabsMore" title="更多" hidden>▾</button>
+        <div class="etf-tabs-dropdown" id="etfTabsDropdown" hidden></div>
+      </div>
+      <div class="dlist" id="etfList"></div>
+    </div>
+
+    <!-- 设置面板 -->
+    <div class="settings no-drag" id="settingsPanel" hidden>
+      <div class="settings-head">
+        <span class="settings-title">设置</span>
+        <button class="icon-btn no-drag" id="settingsClose" title="关闭">×</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section">
+          <div class="section-title">外观</div>
+          <div class="set-grid">
+            <div class="set-card">
+              <div class="set-card-label">透明度</div>
+              <input type="range" id="opacitySlider" min="0.2" max="1" step="0.05" />
+              <span class="set-card-val" id="opacityVal">0.90</span>
+            </div>
+            <div class="set-card">
+              <div class="set-card-label">背景浓度</div>
+              <input type="range" id="glassSlider" min="0" max="0.95" step="0.01" title="面板与行背景的不透明度（0=最透明、只留毛玻璃，0.95=最浓）；浓度越低，背景模糊会自动越强，保证文字清晰" />
+              <span class="set-card-val" id="glassVal">0.48</span>
+            </div>
+            <div class="set-card">
+              <div class="set-card-label">字体大小 <span class="set-card-val" id="fontSizeVal">13px</span></div>
+              <input type="range" id="fontSizeSlider" min="10" max="17" step="1" title="调整全局字号，列表/指数/弹窗同步缩放" />
+            </div>
+            <div class="set-card">
+              <div class="set-card-label">主题</div>
+              <select id="themeSel">
+                <option value="light">浅色磨砂</option>
+                <option value="dark">深色磨砂</option>
+              </select>
+            </div>
+            <div class="set-card color-card">
+              <div class="set-card-label">涨 / 跌色</div>
+              <div class="color-row">
+                <input type="color" id="upColor" value="#e23b3b" title="涨色" />
+                <input type="color" id="downColor" value="#12a150" title="跌色" />
+              </div>
+            </div>
+            <div class="set-card">
+              <div class="set-card-label">分时图颜色</div>
+              <select id="sparkModeSel">
+                <option value="change">随涨跌</option>
+                <option value="solid">纯色</option>
+              </select>
+              <input type="color" id="sparkColor" value="#5b8def" title="纯色分时图颜色" style="margin-top:6px; width:100%;" />
+              <div class="spark-preview" id="sparkPreview" title="实时预览（改完立刻生效）"></div>
+              <div class="set-card-hint">随涨跌：红色/绿色按当日涨跌着色；纯色：统一使用下方颜色。预览即所见。</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="section-title">行为</div>
+          <div class="toggle-grid">
+            <label class="toggle">
+              <input type="checkbox" id="aotChk" />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">始终置顶</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="lockChk" />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">锁定位置</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="clickChk" />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">鼠标穿透</span>
+            </label>
+            <label class="toggle" title="拖到屏幕边缘吸附后，鼠标离开窗口就自动收起只留一条边；鼠标移到屏幕边缘即可唤出，像 QQ 一样">
+              <input type="checkbox" id="edgeChk" />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">贴边自动收起</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="compactChk" />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">紧凑模式</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="sortChk" />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">按涨跌幅排序</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="soundChk" />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">预警提示音</span>
+            </label>
+            <label class="toggle" title="透明行情条贴在任务栏空白区，显示常驻票（★）名称/现价/涨跌幅；给多只票设★则每8秒轮播；行情条可左右拖动，关闭则还原纯托盘模式">
+              <input type="checkbox" id="taskbarChk" />
+              <span class="toggle-switch"></span>
+              <span class="toggle-label">任务栏行情</span>
+            </label>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="section-title">显示列</div>
+          <div class="toggle-grid">
+            <label class="toggle"><input type="checkbox" id="colChg" /><span class="toggle-switch"></span><span class="toggle-label">涨跌幅</span></label>
+            <label class="toggle"><input type="checkbox" id="colHL" /><span class="toggle-switch"></span><span class="toggle-label">最高/最低</span></label>
+            <label class="toggle"><input type="checkbox" id="colPnl" /><span class="toggle-switch"></span><span class="toggle-label">盈亏</span></label>
+            <label class="toggle"><input type="checkbox" id="colSpark" /><span class="toggle-switch"></span><span class="toggle-label">分时图</span></label>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="section-title">数据</div>
+          <div class="set-grid one-col">
+            <div class="set-card">
+              <div class="set-card-label">刷新间隔</div>
+              <select id="intervalSel">
+                <option value="1000">1 秒</option>
+                <option value="3000">3 秒</option>
+                <option value="5000">5 秒</option>
+                <option value="10000">10 秒</option>
+              </select>
+            </div>
+            <div class="set-card">
+              <div class="set-card-label">汇率（外币→人民币，仅持仓汇总用）</div>
+              <div class="rate-grid">
+                <label class="rate-item">美元 <input class="no-drag" id="rateUSD" type="number" step="0.01" min="0" value="7.2"></label>
+                <label class="rate-item">港币 <input class="no-drag" id="rateHKD" type="number" step="0.01" min="0" value="0.92"></label>
+              </div>
+              <div class="set-card-hint">跨市场持仓按此折算人民币汇总；可在财经网站查实时中间价更新。</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-section" id="groupSection">
+          <div class="section-title">交流群</div>
+          <div class="group-mini no-drag" id="groupMiniCard" title="点击查看大图 / 扫码进群">
+            <img id="groupQrcodeMini" alt="群二维码" draggable="false" />
+            <div class="group-mini-info">
+              <div class="group-mini-name" id="groupMiniName">官方交流群</div>
+              <div class="group-mini-hint">扫码进群 · 第一时间拿更新与攻略</div>
+              <button class="mini-btn no-drag" id="groupMiniOpen">查看交流群</button>
+            </div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="section-title">高级</div>
+          <button class="mini-btn no-drag" id="settingsManageBtn" style="width:100%">管理自选 / 备份 / 批量导入</button>
+          <div class="set-card-hint">打开独立管理弹窗，管理自选股、成本、预警、导入导出等。</div>
+        </div>
+        <div class="hint">拖动标题栏移动；双击标题栏切换置顶；双击股票行打开行情；点击分时图查看大图；行尾 ★ 设为常驻票（收起时只显示它）。可直接输入名称搜索；托盘 / 菜单可重置位置、打开行情、添加自选；Ctrl+Alt+S 显隐。拖到屏幕边缘会自动吸附并贴住，窗口始终可见。在「持仓」视图点任意一行即可就地改成本价与股数（支持加仓 / 减仓 / 删持仓 / 移出自选）；也可点 ＋ 打开添加面板。在自选列表右键某只票选「设置成本价/股数」也能直接编辑成本与股数。</div>
+      </div>
+    </div>
+
+    <!-- 管理弹窗（自选管理 + 备份与导入，从设置面板拆分出来） -->
+    <div class="chart-modal" id="manageModal" hidden>
+      <div class="chart-card manage-card">
+        <div class="chart-head">
+          <div class="chart-title">管理自选</div>
+          <button class="icon-btn no-drag" id="manageClose" title="关闭">×</button>
+        </div>
+        <div class="settings-section">
+          <div class="section-title">自选管理（填成本价 + 股数看浮动盈亏）</div>
+          <div id="manageList" class="manage-list"></div>
+        </div>
+        <div class="settings-section">
+          <div class="section-title">备份与导入</div>
+          <div class="backup-row">
+            <button class="mini-btn no-drag" id="exportBtn" title="导出全部分组、设置、预警、持仓为 JSON">导出自选</button>
+            <button class="mini-btn no-drag" id="importBtn" title="从 JSON 文件导入（合并到当前）">导入自选</button>
+            <button class="mini-btn no-drag" id="exportCsvBtn" title="导出当前分组持仓为 CSV（含实时市值/盈亏）">导出持仓CSV</button>
+          </div>
+          <div class="backup-sub">批量导入：每行一个代码或名称（逗号 / 空格分隔也可）</div>
+          <textarea id="batchInput" class="batch-input no-drag" rows="3" placeholder="如：600519&#10;sz000001, 300750&#10;半导体"></textarea>
+          <button class="mini-btn no-drag" id="batchAddBtn">批量添加</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- 桌面宠物：签到 / 装扮 / 商城 —— 萌宠交易所 -->
+  <div class="pet-layer" id="petLayer">
+    <div class="pet" id="petCat" title="点我打开萌宠交易所">
+      <div class="pet-inner" id="petInner">
+        <div class="pet-art" id="petArt"></div>
+        <div class="pet-aura" id="petAura"></div>
+      </div>
+      <span class="pet-badge" id="petBadge">Lv.1</span>
+      <div class="pet-bubble" id="petBubble"></div>
+    </div>
+
+    <!-- 萌宠交易所面板 -->
+    <div class="pet-center" id="petCenter" hidden>
+      <div class="pet-center-card">
+        <div class="pc-head">
+          <div class="pc-account" id="pcAccount"></div>
+          <div class="pc-points">💎 <b id="pcPoints">0</b></div>
+          <button class="icon-btn no-drag" id="petRoamToggle" title="自动走动">🚶</button>
+          <button class="icon-btn no-drag" id="petCenterClose" title="关闭">×</button>
+        </div>
+        <div class="pc-tabs no-drag" id="pcTabs">
+          <button data-tab="sign" class="active">签到</button>
+          <button data-tab="dress">装扮</button>
+          <button data-tab="shop">商城</button>
+          <button data-tab="pass">通行证</button>
+        </div>
+        <div class="pc-body" id="pcBody">
+          <!-- 签到 -->
+          <div class="pc-pane" data-pane="sign">
+            <div class="pc-preview"><div class="pc-preview-art" id="pcSignArt"></div></div>
+            <div class="pc-stat"><span>宠物等级</span><b id="psiLevel">Lv.1</b></div>
+            <div class="pc-stat"><span>累计积分</span><b id="psiPoints">0</b></div>
+            <div class="pc-stat"><span>连续签到</span><b id="psiStreak">0 天</b></div>
+            <div class="psi-exp"><div class="psi-exp-bar" id="psiExpBar"></div></div>
+            <div class="psi-exp-txt" id="psiExpTxt">距下一级还差 30 分</div>
+            <div class="pet-sign-msg" id="petSignMsg">点下方按钮签到，领取积分养宠物升级～</div>
+            <button class="mini-btn no-drag primary pet-sign-btn" id="petSignBtn">签到领 5 积分</button>
+          </div>
+          <!-- 装扮 -->
+          <div class="pc-pane" data-pane="dress" hidden>
+            <div class="pc-preview">
+              <div class="pc-preview-art" id="pcDressArt"></div>
+              <div class="pc-preview-tip" id="pcDressTip">点下方卡片更换宠物 / 装扮</div>
+            </div>
+            <div class="pc-subtabs no-drag" id="pcDressSub">
+              <button data-sub="pet" class="active">宠物</button>
+              <button data-sub="costume">服饰</button>
+              <button data-sub="aura">光效</button>
+              <button data-sub="action">动作</button>
+            </div>
+            <div class="pc-sub" data-sub="pet">
+              <div class="pc-sec-title">我的宠物</div>
+              <div class="pc-grid" id="pcPetGrid"></div>
+            </div>
+            <div class="pc-sub" data-sub="costume" hidden>
+              <div class="pc-sec-title">我的服饰</div>
+              <div class="pc-grid" id="pcCostumeGrid"></div>
+            </div>
+            <div class="pc-sub" data-sub="aura" hidden>
+              <div class="pc-sec-title">我的光效</div>
+              <div class="pc-grid" id="pcAuraGrid"></div>
+            </div>
+            <div class="pc-sub" data-sub="action" hidden>
+              <div class="pc-sec-title">我的动作</div>
+              <div class="pc-grid" id="pcActionGrid"></div>
+            </div>
+          </div>
+          <!-- 商城 -->
+          <div class="pc-pane" data-pane="shop" hidden>
+            <div class="pc-subtabs no-drag" id="pcShopSub">
+              <button data-sub="pet" class="active">宠物</button>
+              <button data-sub="costume">服饰</button>
+              <button data-sub="aura">光效</button>
+              <button data-sub="action">动作</button>
+            </div>
+            <div class="pc-sub" data-sub="pet">
+              <div class="pc-sec-title">🐱 宠物</div>
+              <div class="pc-shop" id="pcPetShop"></div>
+            </div>
+            <div class="pc-sub" data-sub="costume" hidden>
+              <div class="pc-sec-title">👕 服饰（普通款）</div>
+              <div class="pc-shop" id="pcCostumeShop"></div>
+            </div>
+            <div class="pc-sub" data-sub="aura" hidden>
+              <div class="pc-sec-title">✨ 光效（特效款 · 环绕猫咪）</div>
+              <div class="pc-shop" id="pcAuraShop"></div>
+            </div>
+            <div class="pc-sub" data-sub="action" hidden>
+              <div class="pc-sec-title">🎬 专属动作（每只猫独有）</div>
+              <div class="pc-shop" id="pcActionShop"></div>
+            </div>
+          </div>
+          <!-- 通行证 -->
+          <div class="pc-pane" data-pane="pass" hidden>
+            <div class="pass-head">
+              <div class="pass-season">第 <b id="passSeason">1</b> 赛季 · 通行证</div>
+              <div class="pass-tier" id="passTier">免费通行证</div>
+            </div>
+            <div class="pass-level">
+              <div class="pass-lv">Lv.<b id="passLevel">1</b></div>
+              <div class="pass-xpbar"><div class="pass-xpfill" id="passXpFill"></div><span class="pass-xptxt" id="passXpTxt"></span></div>
+            </div>
+            <button class="pass-buy" id="passBuyBtn">开通进阶通行证（200 积分 / 30天）</button>
+            <div class="pass-tasks" id="passTasks"></div>
+            <div class="pass-track-title">
+              <span>奖励轨道（每升 1 级可领对应奖励）</span>
+              <button class="pass-claim-all" id="passClaimAllBtn">一键领取</button>
+            </div>
+            <div class="pass-track" id="passTrack"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 轻量「添加/编辑持仓」面板 -->
+  <div class="chart-modal" id="pfAddModal" hidden>
+    <div class="chart-card pf-add-card">
+      <div class="chart-head">
+        <div class="chart-title" id="pfAddTitle">添加持仓</div>
+        <button class="icon-btn no-drag" id="pfAddClose" title="关闭">×</button>
+      </div>
+      <div class="pf-add-body">
+        <!-- 搜索区：添加模式显示，编辑模式隐藏 -->
+        <div class="pf-add-search" id="pfAddSearchWrap">
+          <div class="add-search-row">
+            <input id="pfAddInput" class="no-drag" type="text" placeholder="代码或名称，如 600519 / 茅台 / hk00700" />
+          </div>
+          <div class="pf-add-results no-drag" id="pfAddResults" hidden></div>
+        </div>
+
+        <!-- 已选股票编辑区 -->
+        <div class="pf-add-sel no-drag" id="pfAddSel" hidden>
+          <div class="pf-add-sel-card">
+            <div class="pf-add-sel-icon" id="pfAddSelIcon">?</div>
+            <div class="pf-add-sel-info">
+              <div class="pf-add-sel-name-wrap">
+                <span class="pf-add-sel-name" id="pfAddSelName"></span>
+                <span class="pf-add-sel-tag" id="pfAddSelTag"></span>
+              </div>
+              <div class="pf-add-sel-code" id="pfAddSelCode"></div>
+            </div>
+            <div class="pf-add-sel-price" id="pfAddSelPrice"></div>
+          </div>
+
+          <div class="pf-add-fields">
+            <div class="pf-field">
+              <label>成本价</label>
+              <div class="pf-input-wrap">
+                <input id="pfAddCost" class="no-drag" type="number" step="0.001" placeholder="买入价">
+                <span class="pf-input-suffix">元</span>
+              </div>
+            </div>
+            <div class="pf-field">
+              <label>股数</label>
+              <div class="pf-input-wrap">
+                <input id="pfAddShares" class="no-drag" type="number" step="1" placeholder="持仓股数">
+                <span class="pf-input-suffix">股</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pf-add-opts">
+            <button class="pf-opt-btn no-drag" id="pfAddNow">按现价填入</button>
+            <label class="pf-add-jiacang"><input type="checkbox" id="pfAddJia" class="no-drag"> 加仓（追加为一批次）</label>
+          </div>
+          <div class="pf-add-hint" id="pfAddHint"></div>
+        </div>
+      </div>
+      <div class="pf-add-foot">
+        <button class="pf-add-btn secondary no-drag" id="pfAddCancel">取消</button>
+        <button class="pf-add-btn primary no-drag" id="pfAddOk">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 放大分时图 / K线弹窗 -->
+  <div class="chart-modal" id="chartModal" hidden>
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="chart-title" id="chartTitle">--</div>
+        <button class="icon-btn no-drag" id="indBtn" title="指标设置">fx</button>
+        <button class="icon-btn no-drag" id="chartClose" title="关闭">×</button>
+        <div class="ind-panel no-drag" id="indPanel" hidden>
+          <div class="ind-sec">
+            <div class="ind-sec-title">均线 MA</div>
+            <label class="ind-check"><input type="checkbox" data-ma="5" checked><span>MA5</span></label>
+            <label class="ind-check"><input type="checkbox" data-ma="10" checked><span>MA10</span></label>
+            <label class="ind-check"><input type="checkbox" data-ma="20" checked><span>MA20</span></label>
+            <label class="ind-check"><input type="checkbox" data-ma="60"><span>MA60</span></label>
+          </div>
+          <div class="ind-sec">
+            <div class="ind-sec-title">副图</div>
+            <label class="ind-check"><input type="checkbox" id="macdChk" checked><span>MACD</span></label>
+          </div>
+          <div class="ind-hint">滚轮缩放 · 拖拽平移 · 双击复位</div>
+        </div>
+      </div>
+      <div class="chart-tabs no-drag" id="chartTabs">
+        <div class="chart-tabs-track no-drag" id="chartTabsTrack"></div>
+        <button class="chart-tabs-more no-drag" id="chartTabsMore" title="更多周期">▾</button>
+        <div class="chart-tabs-dropdown no-drag" id="chartTabsDropdown" hidden></div>
+      </div>
+      <div class="chart-sub" id="chartSub">--</div>
+      <svg class="chart-big" id="chartBig" viewBox="0 0 600 260" preserveAspectRatio="none"></svg>
+      <div class="chart-axis" id="chartAxis"></div>
+    </div>
+  </div>
+
+  <!-- 行情榜单弹窗 -->
+  <div class="chart-modal" id="rankModal" hidden>
+    <div class="chart-card rank-card">
+      <div class="chart-head">
+        <div class="chart-title">行情榜单</div>
+        <button class="icon-btn no-drag" id="rankClose" title="关闭">×</button>
+      </div>
+      <div class="rank-tabs no-drag" id="rankTabs">
+        <button data-rank="up" class="active">涨幅榜</button>
+        <button data-rank="down">跌幅榜</button>
+        <button data-rank="turn">换手榜</button>
+        <button data-rank="amount">成交额榜</button>
+      </div>
+      <div class="rank-list" id="rankList"></div>
+      <div class="rank-hint">点行查看K线 · 点 ＋ 加入自选</div>
+    </div>
+  </div>
+
+  <!-- 板块成分股弹窗 -->
+  <div class="chart-modal" id="boardModal" hidden>
+    <div class="chart-card rank-card">
+      <div class="chart-head">
+        <div class="chart-title" id="boardTitle">板块</div>
+        <button class="icon-btn no-drag" id="boardClose" title="关闭">×</button>
+      </div>
+      <div class="rank-list" id="boardList"></div>
+      <div class="rank-hint">点行查看K线 · 点 ＋ 加入自选</div>
+    </div>
+  </div>
+
+  <!-- 右键行菜单 -->
+  <div class="ctx-menu no-drag" id="ctxMenu" hidden></div>
+
+  <!-- 快捷键与帮助弹窗 -->
+  <div class="chart-modal" id="helpModal" hidden>
+    <div class="chart-card help-card">
+      <div class="chart-head">
+        <div class="chart-title">快捷键与帮助</div>
+        <button class="icon-btn no-drag" id="helpClose" title="关闭">×</button>
+      </div>
+      <div class="help-body" id="helpBody"></div>
+    </div>
+  </div>
+
+  <!-- 首次使用引导浮层 -->
+  <div class="onboard" id="onboard" hidden>
+    <div class="onboard-card">
+      <div class="onboard-title">欢迎使用股票自选小窗 👋</div>
+      <div class="onboard-text" id="onboardText"></div>
+      <div class="onboard-dots" id="onboardDots"></div>
+      <div class="onboard-actions">
+        <button class="mini-btn no-drag" id="onboardSkip">跳过</button>
+        <button class="mini-btn no-drag primary" id="onboardNext">下一步</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="pets.js"></script>
+  <script src="renderer.js"></script>
+
+</body>
+</html>

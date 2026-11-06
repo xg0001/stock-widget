@@ -1,0 +1,20 @@
+node_modules/
+
+# build output
+release/
+dist/
+out/
+
+# editor cache
+.workbuddy/
+.vscode/
+.idea/
+
+# logs
+*.log
+npm-debug.log*
+
+# system files
+Thumbs.db
+Desktop.ini
+.DS_Store
