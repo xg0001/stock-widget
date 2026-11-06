@@ -13,6 +13,12 @@
 
 [📦 **下载安装包**（推荐，双击安装）](https://github.com/xg0001/stock-widget/releases/download/v1.0.0/stock-widget-Setup-1.0.0.exe)  |  [🍃 **绿色便携版**（解压即用，免安装）](https://github.com/xg0001/stock-widget/releases/download/v1.0.0/stock-widget-v1.0.0-win64-portable.zip)
 
+
+> ⚡ **国内下载太慢？用加速链接**（实测约快 3~4 倍；由开源镜像 gh-proxy 提供，若失效可把前缀 `https://gh-proxy.com/` 换成 `https://ghfast.top/`）：
+>
+> - [🚀 高速下载 · 安装包 exe](https://gh-proxy.com/https://github.com/xg0001/stock-widget/releases/download/v1.0.0/stock-widget-Setup-1.0.0.exe)
+> - [🚀 高速下载 · 便携版 zip](https://gh-proxy.com/https://github.com/xg0001/stock-widget/releases/download/v1.0.0/stock-widget-v1.0.0-win64-portable.zip)
+
 ---
 
 ## 🖼️ 界面预览
