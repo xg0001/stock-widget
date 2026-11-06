@@ -2,6 +2,18 @@
 
 一个用 Electron 做的**透明、无边框、始终置顶**的桌面股票小窗，可添加自选股并实时观看价格（数据源：腾讯财经，免费无需鉴权，支持 A股 / 港股 / 北交所）。
 
+## 界面预览
+
+| 主界面（透明悬浮 + 指数条 + 分时小图） | 放大分时 / K线图 |
+|---|---|
+| ![主界面](assets/screenshots/main.png) | ![放大图](assets/screenshots/chart.png) |
+
+| 行情榜单 | 设置中心 |
+|---|---|
+| ![榜单](assets/screenshots/rank.png) | ![设置](assets/screenshots/settings.png) |
+
+> 📥 **下载安装**：去 [Releases](../../releases) 页面下载 `stock-widget-Setup-1.0.0.exe` 安装包（Windows x64）。
+
 ## 功能
 - 🪟 透明窗口 + 毛玻璃效果，可叠在桌面 / 浏览器 / 游戏上
 - 📌 始终置顶，拖动标题栏移动，**位置自动记忆**（下次启动还原，并夹取到屏幕内防跑飞）
